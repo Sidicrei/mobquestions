@@ -1,0 +1,23 @@
+    1  ls
+    2  mkdir /dev
+    3  cd mkdir
+    4  cd dev
+    5  cd\dev
+    6  cd/dev
+    7  mkdir /dev
+    8  mkdir \dev
+    9  cd \dev
+   10  git https://github.com/Sidicrei/mobquestions
+   11  git clone https://github.com/Sidicrei/mobquestions
+   12  git commit
+   13  git commit -am 'commit inicial'
+   14  cd mobquestions/
+   15  git commit -am 'commit inicial'
+   16  git push
+   17  git push
+   18  git push
+   19  git push
+   20  git push
+   21  git push
+   22  git push
+   23  history > comandos
