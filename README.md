@@ -20,7 +20,7 @@ git clone https://github.com/<seu_nome_de_usuario>/mobquestions
 3. Instale as dependências. Execute no prompt de comando ou no shell: `python -m pip install -r requirements.txt`
 
 4. Defina a variável de ambiente *FLASK_APP*. Em Windows:
-`set FLASK_APP=app.py`
+``
 
 5. Para rodar o app flask execute: `python -m flask run --host=0.0.0.0 --port=8088`. Para testar, acesse pelo navegador o endereço http://localhost:8088/
 
