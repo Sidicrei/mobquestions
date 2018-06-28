@@ -5,17 +5,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from bson import json_util
 
-from config import MONGO_URI
+from config import MONGO_URI, MONGO_URI_TESTS, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
 from auth import *
 
+import os
+import redis
 
-app = Flask(__name__)
-app.config['MONGO_URI'] = MONGO_URI
-app.config['DEBUG'] = True
+rcache = redis.Redis(
+            host=REDIS_HOST, 
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD)
 
-app_context = app.app_context()
-app_context.push()
 
+def create_app(testing = False):
+    app = Flask(__name__)
+    if os.getenv('FLASK_TESTING') and os.getenv('FLASK_TESTING')==1:
+        app.config['MONGO_URI'] = MONGO_URI_TESTS
+    else:
+        app.config['MONGO_URI'] = MONGO_URI
+    app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
+    app_context = app.app_context()
+    app_context.push()        
+    return app
+
+mongo = None
+app = create_app()
 mongo = PyMongo(app)
 
 col_users = mongo.db.users
@@ -44,12 +58,26 @@ def signin():
     else:
         return "Unauthorized", 401
 
-
 @app.route('/', methods=['GET'])
 @jwt_required
 def index():
     res = col_users.find({})
     return json_util.dumps(list(res)), 200
+
+@app.route('/cached_example', methods=['GET'])
+def questao_mais_legal_cacheada():    
+    if rcache and rcache.get('questao_legal'):
+        return rcache.get('questao_legal'), 200
+    else:
+        question = col_questions.find({'id': 'c14ca8e5-b7'})
+        if rcache:
+            rcache.set('questao_legal', json_util.dumps(question))
+    return json_util.dumps(question), 200
+
+@app.route('/not_cached_example', methods=['GET'])
+def questao_mais_legal():    
+    question = col_questions.find({'id': 'bc3b3701-b7'})
+    return json_util.dumps(question), 200
 
 
 @app.route('/refresh_token', methods=['GET'])
@@ -75,59 +103,25 @@ def token():
     return json_util.dumps(g.parsed_token), 200
 
 
-##Atividade - 00
-@app.route('/v1/users', methods=['POST'])
-def create_user_v1():
+@app.route('/users', methods=['POST'])
+def create_user():
     data = request.get_json()
+    if 'password' not in data.keys() or 'username' not in data.keys():
+        return 'Dados insuficientes.', 400
     data['password'] = generate_password_hash(data['password'])
-    usuario_encontrado = col_users.find_one({'username' : data['username']})
-    if not usuario_encontrado:
-        col_users.insert_one(data)
-        return 'usuario ' + data['username'] + ' criado.', 201
-    else : 
-        return 'usuario '+ data['username'] + ' já existente.', 203
+    col_users.insert_one(data)
+    del(data['password'])
+    return json_util.dumps(data), 201
 
-##Atividade - 01 
-@app.route('/v1/users/<username>', methods=['GET'])
-def get_user_v1(username):
-    usuario_encontrado = col_users.find_one({'username' : username})
-    if usuario_encontrado:
-        return json_util.dumps(usuario_encontrado), 200
-    else : 
-        return 'usuario '+ username + ' não encontrado', 404
 
-##Atividade - 02
-@app.route('/v1/authenticate', methods=['POST'])
-def authenticate_user_v1():
-    data = request.get_json()
-    if not request or 'username' not in data or 'password' not in data:
-        return 'dados não informados', 401
-    else:
-        usuario_encontrado = col_users.find_one({"username" : data['username'] }, {"_id" : 0,"password" : 1})
-        for key, value in usuario_encontrado.items():
-            password = value
-        if not usuario_encontrado or not check_password_hash(password, data['password']):            
-            return 'usuario ' + data['username'] + ' e/ou senha não encontrado.', 403
-        else : 
-            return 'usuario e senha válidos.', 200
+@app.route('/users/<username>', methods=['GET'])
+def get_user(username):
+    return username, 200
 
-##Atividade - 03
-@app.route('/v1/users/update', methods=['POST'])
-def update_user_v1():
-    data = request.get_json()
-    username = request.args.get('username')
-    print(username)
-
-    ##return 'teste 3', 200
-    if not request or 'username' not in data or 'password' not in data:
-        return 'dados não informados', 401
-    else:
-        print(data['password'])
-        usuario_encontrado = col_users.find_one({"username" : data['username'] })
-        print(json_util.dumps(usuario_encontrado))
-        for key, value in usuario_encontrado.items():
-            password = value
-        if not usuario_encontrado or not check_password_hash(usuario_encontrado["password"], data['password']):            
-            return 'usuario ' + data['username'] + ' e/ou senha não encontrado.', 403
-        else : 
-            return 'usuario e senha válidos.', 200
+# rota para exemplificar como utilizar obter variaveis
+# de url. teste acessando 
+# http://localhost:8088/questions/search?disciplina=1 
+@app.route('/questions/search', methods=['GET'])
+def search():
+    disciplina = request.args.get('disciplina')
+    return disciplina, 200
